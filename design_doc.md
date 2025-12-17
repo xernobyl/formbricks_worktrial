@@ -73,6 +73,8 @@ There’s a saying that *“code is a liability”*, and I generally agree with 
 
 Huma’s OpenAPI-first approach is a big win here. OpenAPI is extremely useful, but keeping specs and code in sync manually is painful. Having this built into the framework feels like the right trade-off.
 
+After a brief discussion I ended up going with the RAW go approach.
+
 ---
 
 ### Database

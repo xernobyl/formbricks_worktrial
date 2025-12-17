@@ -23,8 +23,8 @@ type ExperienceData struct {
 	ValueNumber    *float64        `json:"value_number,omitempty"`
 	ValueBoolean   *bool           `json:"value_boolean,omitempty"`
 	ValueDate      *time.Time      `json:"value_date,omitempty"`
-	ValueJSON      json.RawMessage `json:"value_json,omitempty"`
-	Metadata       json.RawMessage `json:"metadata,omitempty"`
+	ValueJSON      json.RawMessage `json:"value_json,omitempty" swaggertype:"object"`
+	Metadata       json.RawMessage `json:"metadata,omitempty" swaggertype:"object"`
 	Language       *string         `json:"language,omitempty"`
 	UserIdentifier *string         `json:"user_identifier,omitempty"`
 }
@@ -42,8 +42,8 @@ type CreateExperienceRequest struct {
 	ValueNumber    *float64        `json:"value_number,omitempty"`
 	ValueBoolean   *bool           `json:"value_boolean,omitempty"`
 	ValueDate      *time.Time      `json:"value_date,omitempty"`
-	ValueJSON      json.RawMessage `json:"value_json,omitempty"`
-	Metadata       json.RawMessage `json:"metadata,omitempty"`
+	ValueJSON      json.RawMessage `json:"value_json,omitempty" swaggertype:"object"`
+	Metadata       json.RawMessage `json:"metadata,omitempty" swaggertype:"object"`
 	Language       *string         `json:"language,omitempty"`
 	UserIdentifier *string         `json:"user_identifier,omitempty"`
 }
@@ -60,8 +60,8 @@ type UpdateExperienceRequest struct {
 	ValueNumber    *float64        `json:"value_number,omitempty"`
 	ValueBoolean   *bool           `json:"value_boolean,omitempty"`
 	ValueDate      *time.Time      `json:"value_date,omitempty"`
-	ValueJSON      json.RawMessage `json:"value_json,omitempty"`
-	Metadata       json.RawMessage `json:"metadata,omitempty"`
+	ValueJSON      json.RawMessage `json:"value_json,omitempty" swaggertype:"object"`
+	Metadata       json.RawMessage `json:"metadata,omitempty" swaggertype:"object"`
 	Language       *string         `json:"language,omitempty"`
 	UserIdentifier *string         `json:"user_identifier,omitempty"`
 }
@@ -86,6 +86,15 @@ type SearchExperiencesRequest struct {
 	UserIdentifier *string    `json:"user_identifier,omitempty"` // Filter by user identifier
 	StartDate      *time.Time `json:"start_date,omitempty"`      // Filter by collected_at >= start_date
 	EndDate        *time.Time `json:"end_date,omitempty"`        // Filter by collected_at <= end_date
-	Limit          int        `json:"limit,omitempty"`           // Maximum number of results
-	Offset         int        `json:"offset,omitempty"`          // Number of results to skip
+	PageSize       int        `json:"page_size,omitempty"`       // Number of results per page (default 20, max 40)
+	Page           int        `json:"page,omitempty"`            // Page number (starts at 0)
+}
+
+// SearchExperiencesResponse represents paginated search results
+type SearchExperiencesResponse struct {
+	Data       []ExperienceData `json:"data"`
+	Page       int              `json:"page"`
+	PageSize   int              `json:"page_size"`
+	TotalCount int              `json:"total_count"`
+	TotalPages int              `json:"total_pages"`
 }

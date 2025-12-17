@@ -59,6 +59,47 @@ func (s *ExperienceService) DeleteExperience(ctx context.Context, id uuid.UUID) 
 	return s.repo.Delete(ctx, id)
 }
 
+// SearchExperiences performs advanced search with pagination
+func (s *ExperienceService) SearchExperiences(ctx context.Context, req *models.SearchExperiencesRequest) (*models.SearchExperiencesResponse, error) {
+	// Set default page size and enforce limits
+	if req.PageSize <= 0 {
+		req.PageSize = 20 // Default page size
+	}
+	if req.PageSize > 40 {
+		req.PageSize = 40 // Max page size
+	}
+
+	// Ensure page is not negative
+	if req.Page < 0 {
+		req.Page = 0
+	}
+
+	// Call repository search
+	experiences, totalCount, err := s.repo.Search(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate total pages
+	totalPages := totalCount / req.PageSize
+	if totalCount%req.PageSize > 0 {
+		totalPages++
+	}
+
+	// Ensure we have at least 0 data
+	if experiences == nil {
+		experiences = []models.ExperienceData{}
+	}
+
+	return &models.SearchExperiencesResponse{
+		Data:       experiences,
+		Page:       req.Page,
+		PageSize:   req.PageSize,
+		TotalCount: totalCount,
+		TotalPages: totalPages,
+	}, nil
+}
+
 // validateCreateRequest validates the create request
 func (s *ExperienceService) validateCreateRequest(req *models.CreateExperienceRequest) error {
 	if req.SourceType == "" {

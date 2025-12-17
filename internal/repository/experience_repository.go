@@ -326,3 +326,136 @@ func (r *ExperienceRepository) Delete(ctx context.Context, id uuid.UUID) error {
 
 	return nil
 }
+
+// Search performs advanced search with filters and pagination
+func (r *ExperienceRepository) Search(ctx context.Context, req *models.SearchExperiencesRequest) ([]models.ExperienceData, int, error) {
+	// Build base query
+	baseQuery := `
+		SELECT id, collected_at, created_at, updated_at,
+			source_type, source_id, source_name,
+			field_id, field_label, field_type,
+			value_text, value_number, value_boolean, value_date, value_json,
+			metadata, language, user_identifier
+		FROM experience_data
+	`
+
+	countQuery := `SELECT COUNT(*) FROM experience_data`
+
+	var conditions []string
+	var args []interface{}
+	argCount := 1
+
+	// Full-text search on text fields
+	if req.Query != nil && *req.Query != "" {
+		conditions = append(conditions, fmt.Sprintf(`(
+			value_text ILIKE $%d OR
+			field_label ILIKE $%d OR
+			source_name ILIKE $%d OR
+			field_id ILIKE $%d
+		)`, argCount, argCount, argCount, argCount))
+		args = append(args, "%"+*req.Query+"%")
+		argCount++
+	}
+
+	// Filter by source_type
+	if req.SourceType != nil {
+		conditions = append(conditions, fmt.Sprintf("source_type = $%d", argCount))
+		args = append(args, *req.SourceType)
+		argCount++
+	}
+
+	// Filter by source_id
+	if req.SourceID != nil {
+		conditions = append(conditions, fmt.Sprintf("source_id = $%d", argCount))
+		args = append(args, *req.SourceID)
+		argCount++
+	}
+
+	// Filter by field_id
+	if req.FieldID != nil {
+		conditions = append(conditions, fmt.Sprintf("field_id = $%d", argCount))
+		args = append(args, *req.FieldID)
+		argCount++
+	}
+
+	// Filter by field_type
+	if req.FieldType != nil {
+		conditions = append(conditions, fmt.Sprintf("field_type = $%d", argCount))
+		args = append(args, *req.FieldType)
+		argCount++
+	}
+
+	// Filter by user_identifier
+	if req.UserIdentifier != nil {
+		conditions = append(conditions, fmt.Sprintf("user_identifier = $%d", argCount))
+		args = append(args, *req.UserIdentifier)
+		argCount++
+	}
+
+	// Filter by date range
+	if req.StartDate != nil {
+		conditions = append(conditions, fmt.Sprintf("collected_at >= $%d", argCount))
+		args = append(args, *req.StartDate)
+		argCount++
+	}
+
+	if req.EndDate != nil {
+		conditions = append(conditions, fmt.Sprintf("collected_at <= $%d", argCount))
+		args = append(args, *req.EndDate)
+		argCount++
+	}
+
+	// Add WHERE clause if conditions exist
+	whereClause := ""
+	if len(conditions) > 0 {
+		whereClause = " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	// Get total count
+	var totalCount int
+	err := r.db.QueryRow(ctx, countQuery+whereClause, args...).Scan(&totalCount)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count experiences: %w", err)
+	}
+
+	// Add ORDER BY
+	orderBy := " ORDER BY collected_at DESC"
+
+	// Calculate limit and offset based on page and pageSize
+	limit := req.PageSize
+	offset := req.Page * req.PageSize
+
+	// Add pagination
+	paginationClause := fmt.Sprintf(" LIMIT $%d OFFSET $%d", argCount, argCount+1)
+	args = append(args, limit, offset)
+
+	// Execute search query
+	fullQuery := baseQuery + whereClause + orderBy + paginationClause
+	rows, err := r.db.Query(ctx, fullQuery, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to search experiences: %w", err)
+	}
+	defer rows.Close()
+
+	var experiences []models.ExperienceData
+	for rows.Next() {
+		var exp models.ExperienceData
+		err := rows.Scan(
+			&exp.ID, &exp.CollectedAt, &exp.CreatedAt, &exp.UpdatedAt,
+			&exp.SourceType, &exp.SourceID, &exp.SourceName,
+			&exp.FieldID, &exp.FieldLabel, &exp.FieldType,
+			&exp.ValueText, &exp.ValueNumber, &exp.ValueBoolean, &exp.ValueDate, &exp.ValueJSON,
+			&exp.Metadata, &exp.Language, &exp.UserIdentifier,
+		)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to scan experience: %w", err)
+		}
+		experiences = append(experiences, exp)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("error iterating experiences: %w", err)
+	}
+
+	return experiences, totalCount, nil
+}

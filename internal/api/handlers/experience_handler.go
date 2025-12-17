@@ -219,7 +219,7 @@ func (h *ExperienceHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 // Search handles GET /v1/experiences/search
 // @Summary Search experience data
-// @Description Search experience data with advanced filters and full-text search
+// @Description Search experience data with advanced filters, full-text search, and pagination
 // @Tags experiences
 // @Produce json
 // @Param query query string false "Full-text search query"
@@ -230,9 +230,9 @@ func (h *ExperienceHandler) Delete(w http.ResponseWriter, r *http.Request) {
 // @Param user_identifier query string false "Filter by user identifier"
 // @Param start_date query string false "Filter by collected_at >= start_date (RFC3339 format)"
 // @Param end_date query string false "Filter by collected_at <= end_date (RFC3339 format)"
-// @Param limit query int false "Maximum number of records to return"
-// @Param offset query int false "Number of records to skip"
-// @Success 200 {array} models.ExperienceData
+// @Param pageSize query int false "Number of results per page (default 20, max 40)"
+// @Param page query int false "Page number (starts at 0, default 0)"
+// @Success 200 {object} models.SearchExperiencesResponse
 // @Failure 400 {object} ErrorResponse "Invalid request parameters"
 // @Failure 401 {object} ErrorResponse "Unauthorized - Invalid or missing API key"
 // @Failure 500 {object} ErrorResponse "Internal server error"
@@ -243,10 +243,12 @@ func (h *ExperienceHandler) Search(w http.ResponseWriter, r *http.Request) {
 
 	req := &models.SearchExperiencesRequest{}
 
+	// Parse full-text search query
 	if q := query.Get("query"); q != "" {
 		req.Query = &q
 	}
 
+	// Parse filters
 	if sourceType := query.Get("source_type"); sourceType != "" {
 		req.SourceType = &sourceType
 	}
@@ -267,6 +269,7 @@ func (h *ExperienceHandler) Search(w http.ResponseWriter, r *http.Request) {
 		req.UserIdentifier = &userIdentifier
 	}
 
+	// Parse date range
 	if startDateStr := query.Get("start_date"); startDateStr != "" {
 		startDate, err := time.Parse(time.RFC3339, startDateStr)
 		if err != nil {
@@ -285,28 +288,33 @@ func (h *ExperienceHandler) Search(w http.ResponseWriter, r *http.Request) {
 		req.EndDate = &endDate
 	}
 
-	if limitStr := query.Get("limit"); limitStr != "" {
-		limit, err := strconv.Atoi(limitStr)
-		if err == nil && limit > 0 {
-			req.Limit = limit
+	// Parse pagination parameters
+	// pageSize defaults to 20, max 40 (enforced in service layer)
+	if pageSizeStr := query.Get("pageSize"); pageSizeStr != "" {
+		pageSize, err := strconv.Atoi(pageSizeStr)
+		if err != nil || pageSize < 0 {
+			RespondError(w, http.StatusBadRequest, "invalid_parameter", "Invalid pageSize parameter")
+			return
 		}
+		req.PageSize = pageSize
 	}
 
-	if offsetStr := query.Get("offset"); offsetStr != "" {
-		offset, err := strconv.Atoi(offsetStr)
-		if err == nil && offset >= 0 {
-			req.Offset = offset
+	// page defaults to 0 (enforced in service layer)
+	if pageStr := query.Get("page"); pageStr != "" {
+		page, err := strconv.Atoi(pageStr)
+		if err != nil || page < 0 {
+			RespondError(w, http.StatusBadRequest, "invalid_parameter", "Invalid page parameter")
+			return
 		}
+		req.Page = page
 	}
 
-	// TODO: Implement search functionality in service layer
-	// experiences, err := h.service.SearchExperiences(r.Context(), req)
-	// if err != nil {
-	// 	RespondError(w, http.StatusInternalServerError, "search_failed", err.Error())
-	// 	return
-	// }
+	// Call service to search
+	result, err := h.service.SearchExperiences(r.Context(), req)
+	if err != nil {
+		RespondError(w, http.StatusInternalServerError, "search_failed", err.Error())
+		return
+	}
 
-	// Placeholder: return empty array for now
-	var experiences []models.ExperienceData
-	RespondSuccess(w, http.StatusOK, experiences)
+	RespondSuccess(w, http.StatusOK, result)
 }
