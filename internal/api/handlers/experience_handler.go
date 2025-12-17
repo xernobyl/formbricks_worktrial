@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/xernobyl/formbricks_worktrial/internal/models"
@@ -216,30 +217,92 @@ func (h *ExperienceHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// Search handles POST /v1/experiences/search
+// Search handles GET /v1/experiences/search
 // @Summary Search experience data
 // @Description Search experience data with advanced filters and full-text search
 // @Tags experiences
-// @Accept json
 // @Produce json
-// @Param request body models.SearchExperiencesRequest true "Search parameters"
+// @Param query query string false "Full-text search query"
+// @Param source_type query string false "Filter by source type"
+// @Param source_id query string false "Filter by source ID"
+// @Param field_id query string false "Filter by field ID"
+// @Param field_type query string false "Filter by field type"
+// @Param user_identifier query string false "Filter by user identifier"
+// @Param start_date query string false "Filter by collected_at >= start_date (RFC3339 format)"
+// @Param end_date query string false "Filter by collected_at <= end_date (RFC3339 format)"
+// @Param limit query int false "Maximum number of records to return"
+// @Param offset query int false "Number of records to skip"
 // @Success 200 {array} models.ExperienceData
-// @Failure 400 {object} ErrorResponse "Invalid request"
+// @Failure 400 {object} ErrorResponse "Invalid request parameters"
 // @Failure 401 {object} ErrorResponse "Unauthorized - Invalid or missing API key"
 // @Failure 500 {object} ErrorResponse "Internal server error"
 // @Security BearerAuth
-// @Router /v1/experiences/search [post]
+// @Router /v1/experiences/search [get]
 func (h *ExperienceHandler) Search(w http.ResponseWriter, r *http.Request) {
-	var req models.SearchExperiencesRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		RespondError(w, http.StatusBadRequest, "invalid_request", "Invalid request body")
-		return
+	query := r.URL.Query()
+
+	req := &models.SearchExperiencesRequest{}
+
+	if q := query.Get("query"); q != "" {
+		req.Query = &q
+	}
+
+	if sourceType := query.Get("source_type"); sourceType != "" {
+		req.SourceType = &sourceType
+	}
+
+	if sourceID := query.Get("source_id"); sourceID != "" {
+		req.SourceID = &sourceID
+	}
+
+	if fieldID := query.Get("field_id"); fieldID != "" {
+		req.FieldID = &fieldID
+	}
+
+	if fieldType := query.Get("field_type"); fieldType != "" {
+		req.FieldType = &fieldType
+	}
+
+	if userIdentifier := query.Get("user_identifier"); userIdentifier != "" {
+		req.UserIdentifier = &userIdentifier
+	}
+
+	if startDateStr := query.Get("start_date"); startDateStr != "" {
+		startDate, err := time.Parse(time.RFC3339, startDateStr)
+		if err != nil {
+			RespondError(w, http.StatusBadRequest, "invalid_date", "Invalid start_date format, use RFC3339")
+			return
+		}
+		req.StartDate = &startDate
+	}
+
+	if endDateStr := query.Get("end_date"); endDateStr != "" {
+		endDate, err := time.Parse(time.RFC3339, endDateStr)
+		if err != nil {
+			RespondError(w, http.StatusBadRequest, "invalid_date", "Invalid end_date format, use RFC3339")
+			return
+		}
+		req.EndDate = &endDate
+	}
+
+	if limitStr := query.Get("limit"); limitStr != "" {
+		limit, err := strconv.Atoi(limitStr)
+		if err == nil && limit > 0 {
+			req.Limit = limit
+		}
+	}
+
+	if offsetStr := query.Get("offset"); offsetStr != "" {
+		offset, err := strconv.Atoi(offsetStr)
+		if err == nil && offset >= 0 {
+			req.Offset = offset
+		}
 	}
 
 	// TODO: Implement search functionality in service layer
-	// experiences, err := h.service.SearchExperiences(r.Context(), &req)
+	// experiences, err := h.service.SearchExperiences(r.Context(), req)
 	// if err != nil {
-	// 	RespondError(w, http.StatusBadRequest, "search_failed", err.Error())
+	// 	RespondError(w, http.StatusInternalServerError, "search_failed", err.Error())
 	// 	return
 	// }
 
