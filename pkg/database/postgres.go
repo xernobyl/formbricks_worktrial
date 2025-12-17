@@ -3,7 +3,7 @@ package database
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -24,6 +24,6 @@ func NewPostgresPool(ctx context.Context, databaseURL string) (*pgxpool.Pool, er
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	log.Println("Successfully connected to PostgreSQL")
+	slog.Info("Successfully connected to PostgreSQL")
 	return pool, nil
 }
