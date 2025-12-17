@@ -3,9 +3,6 @@
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- Enable pgvector extension
-CREATE EXTENSION IF NOT EXISTS "pgvector";
-
 -- Experience data table
 CREATE TABLE experience_data (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
