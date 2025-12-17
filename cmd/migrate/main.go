@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -19,22 +19,25 @@ func main() {
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
+		slog.Error("Failed to load configuration", "error", err)
+		os.Exit(1)
 	}
 
 	// Get Postgres pool
 	db, err := database.NewPostgresPool(ctx, cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		slog.Error("Failed to connect to database", "error", err)
+		os.Exit(1)
 	}
 	defer db.Close()
 
 	// Run migrations
 	if err := runMigrations(ctx, db); err != nil {
-		log.Fatalf("Migration failed: %v", err)
+		slog.Error("Migration failed", "error", err)
+		os.Exit(1)
 	}
 
-	log.Println("All migrations completed successfully")
+	slog.Info("All migrations completed successfully")
 }
 
 // runMigrations runs the migrations on the given pool
@@ -54,7 +57,7 @@ func runMigrations(ctx context.Context, db *pgxpool.Pool) error {
 	sort.Strings(files)
 
 	for _, file := range files {
-		log.Printf("Running migration: %s", filepath.Base(file))
+		slog.Info("Running migration", "file", filepath.Base(file))
 
 		// Get file content
 		content, err := os.ReadFile(file)
@@ -67,7 +70,7 @@ func runMigrations(ctx context.Context, db *pgxpool.Pool) error {
 			return fmt.Errorf("failed to execute migration %s: %w", file, err)
 		}
 
-		log.Printf("Completed migration: %s", filepath.Base(file))
+		slog.Info("Completed migration", "file", filepath.Base(file))
 	}
 
 	return nil
